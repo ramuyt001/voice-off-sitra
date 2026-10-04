@@ -1,0 +1,6 @@
+{
+  "name": "Voice Off",
+  "description": "Créez une voix off algérienne naturelle pour vos publicités de robes sur Facebook et Instagram Ads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
