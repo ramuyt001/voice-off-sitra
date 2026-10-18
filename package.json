@@ -9,7 +9,9 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:access": "node --test access.test.mjs",
+    "access:setup": "node scripts/setup-access.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

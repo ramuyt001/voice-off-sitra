@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+private-access/
+.voice_profiles_config.json

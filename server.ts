@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+import { installAccess } from './access.mjs';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -28,8 +28,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Enable CORS and JSON parsing
-app.use(cors());
+installAccess(app);
 app.use(express.json({ limit: '10mb' }));
 
 // Shared Gemini client
