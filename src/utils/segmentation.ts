@@ -8,14 +8,28 @@ import {
   SegmentCommercialRole,
   SegmentContinuity,
   VoiceEnergy,
+  VoiceProfileId,
 } from '../types.ts';
 
-// Standard general mode styles with realistic Algerian commercial cadence
-export const GENERAL_MODE_STYLES: Record<string, string> = {
+// Female mode delivery styles (Fashion boutique & Algerian women e-commerce)
+export const FEMALE_MODE_STYLES: Record<string, string> = {
   ugc: 'Natural Algerian UGC delivery. Warm, conversational and demonstrative, like a fashion seller speaking directly to a customer. Use a lively but unforced pace. Keep the articulation spontaneous rather than overly careful. Use a slightly brighter and higher conversational placement while preserving the current voice identity. Add small expressive rises when introducing visual details, followed by natural relaxation. Keep the CTA warm, smiling and confidently inviting. Do not sound theatrical, heavily promotional, slow, low, over-polished or mechanically segmented.',
   promo: 'Dynamic Algerian promotional delivery. Energetic, persuasive and clear on key offers, pricing and call to action. Keep a confident pace around 200 words per minute without shouting or rushing.',
   elegant: 'Refined Algerian boutique delivery. Poised, feminine, reassuring and smooth, around 175 words per minute, with graceful pacing and understated premium confidence.',
 };
+
+// Male mode delivery styles (AI creator, TikTok, Reels & tech workflows for Algerian sellers aged 15-25)
+export const MALE_MODE_STYLES: Record<string, string> = {
+  ugc: 'Natural Algerian male creator delivery. Speak conversationally, as if explaining one useful tip to a friend. Use a lively but comfortable pace, short natural pauses, and gentle emphasis on the practical benefit. Preserve the authentic Algerian Darija accent and pronounce English technical terms (ChatGPT, Reels, prompt, workflow, etc.) clearly without breaking the flow. Sounds like a knowledgeable 20-25 year old friend sharing a tip, never forced, theatrical or commercial.',
+  promo: 'Snappy, energetic and engaging Algerian male creator delivery for TikTok and Reels, around 205 words per minute. Punchy hook, dynamic transitions, direct value delivery for Algerian sellers aged 15-25, without shouting or sounding like a radio ad.',
+  elegant: 'Didactic, clear and reassuring Algerian male creator delivery. Calm, structured, articulate and patient, around 180 words per minute, guiding step-by-step through tools and workflows with confidence.',
+};
+
+export const GENERAL_MODE_STYLES: Record<string, string> = FEMALE_MODE_STYLES;
+
+export function getGeneralModeStyles(profile: VoiceProfileId = 'female'): Record<string, string> {
+  return profile === 'male' ? MALE_MODE_STYLES : FEMALE_MODE_STYLES;
+}
 
 /**
  * Computes a fast deterministic fingerprint/hash for a given script text.
@@ -259,12 +273,14 @@ export function buildMacroGroups(
   fullText: string,
   directions: EmotionalDirection[],
   mode: ReadingModeId = 'ugc',
-  targetDuration: number = 20
+  targetDuration: number = 20,
+  profile: VoiceProfileId = 'female'
 ): MacroGroup[] {
   const validDirs = directions
     .filter((d) => d.isValid && d.status !== 'invalid' && d.status !== 'archived')
     .sort((a, b) => a.startIndex - b.startIndex);
-  const globalModeStyle = GENERAL_MODE_STYLES[mode] || GENERAL_MODE_STYLES.ugc;
+  const stylesMap = getGeneralModeStyles(profile);
+  const globalModeStyle = stylesMap[mode] || stylesMap.ugc;
 
   if (validDirs.length === 0) {
     return [
@@ -476,9 +492,11 @@ export function buildMacroGroups(
 export function buildUnifiedFlowPrompt(
   fullText: string,
   macroGroups: MacroGroup[],
-  mode: ReadingModeId = 'ugc'
+  mode: ReadingModeId = 'ugc',
+  profile: VoiceProfileId = 'female'
 ): string {
-  const baseModeStyle = GENERAL_MODE_STYLES[mode] || GENERAL_MODE_STYLES.ugc;
+  const stylesMap = getGeneralModeStyles(profile);
+  const baseModeStyle = stylesMap[mode] || stylesMap.ugc;
 
   const progressionDescriptions = macroGroups.map((g, idx) => {
     return `Part ${idx + 1} (${g.roleSummary}): ${g.style.split('. Section')[1] || g.style}`;

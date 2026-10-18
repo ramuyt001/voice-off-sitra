@@ -8,6 +8,7 @@ interface HeaderProps {
   monthlySpentEur: number;
   monthlyBudgetEur: number;
   onBudgetChange: (budget: number) => void;
+  profile?: 'female' | 'male';
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,7 +17,9 @@ export const Header: React.FC<HeaderProps> = ({
   monthlySpentEur,
   monthlyBudgetEur,
   onBudgetChange,
+  profile = 'female',
 }) => {
+  const isMale = profile === 'male';
   const budgetPercentage = Math.min(100, (monthlySpentEur / monthlyBudgetEur) * 100);
 
   return (
@@ -24,20 +27,30 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         {/* Brand & Subtitle */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-purple-900/30 ring-1 ring-purple-400/30">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ring-1 ${
+            isMale
+              ? 'bg-gradient-to-tr from-cyan-600 to-blue-600 shadow-cyan-900/30 ring-cyan-400/30'
+              : 'bg-gradient-to-tr from-purple-600 to-fuchsia-500 shadow-purple-900/30 ring-purple-400/30'
+          }`}>
             <Volume2 className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Voice Off
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-500/15 text-purple-300 border border-purple-500/30">
-                  DZ Fashion
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                  isMale
+                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                    : 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                }`}>
+                  {isMale ? 'DZ Creator IA' : 'DZ Fashion'}
                 </span>
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-slate-400">
-              Créez une voix off algérienne naturelle pour vos publicités
+              {isMale
+                ? 'Vidéos TikTok, Reels & astuces IA pour petits vendeurs algériens'
+                : 'Créez une voix off algérienne naturelle pour vos publicités'}
             </p>
           </div>
         </div>
@@ -59,8 +72,13 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <span className="text-emerald-400 font-medium">Voix prête</span>
                 <span className="text-slate-500 text-[11px] hidden md:inline">
-                  (Voice Off DZ Original)
+                  ({voiceStatus.displayName})
                 </span>
+              </>
+            ) : isMale ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="text-amber-400 font-medium">Voix à créer</span>
               </>
             ) : (
               <>

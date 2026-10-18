@@ -1,6 +1,6 @@
-import { DurationConfig, ReadingMode, ReadingModeId, TargetDuration } from '../types.ts';
+import { DurationConfig, ReadingMode, ReadingModeId, TargetDuration, VoiceProfileId } from '../types.ts';
 
-export const READING_MODES: ReadingMode[] = [
+export const FEMALE_READING_MODES: ReadingMode[] = [
   {
     id: 'ugc',
     name: 'UGC naturel',
@@ -32,6 +32,48 @@ export const READING_MODES: ReadingMode[] = [
     badge: 'Conversion',
   },
 ];
+
+export const MALE_READING_MODES: ReadingMode[] = [
+  {
+    id: 'ugc',
+    name: 'Conseil naturel',
+    tagline: 'Pote & Astuce IA',
+    displayDescription: 'Conversationnel, complice et concret, comme un pote qui t’explique une astuce utile.',
+    ttsStyle:
+      'Speak conversationally, as if explaining one useful tip to a friend. Use a lively but comfortable pace, short natural pauses, and gentle emphasis on the practical benefit. Preserve the Algerian Darija pronunciation and pronounce English technical terms clearly without breaking the flow.',
+    iconName: 'MessageSquareHeart',
+    badge: 'Recommandé',
+  },
+  {
+    id: 'elegant',
+    name: 'Tuto & Démo',
+    tagline: 'Pédagogique & Posé',
+    displayDescription: 'Posé, clair et didactique, idéal pour guider pas à pas dans un outil ou un workflow.',
+    ttsStyle:
+      'Didactic, clear and reassuring Algerian male creator delivery. Calm, structured, articulate and patient, guiding step-by-step through tools and workflows with confidence.',
+    iconName: 'Sparkles',
+    badge: 'Didactique',
+  },
+  {
+    id: 'promo',
+    name: 'Reel dynamique',
+    tagline: 'Accroche & Rythme',
+    displayDescription: 'Punchy, percutant et rapide pour capter l’attention sur TikTok / Reels sans crier.',
+    ttsStyle:
+      'Snappy, energetic and engaging Algerian male creator delivery for TikTok and Reels. Fast-paced, punchy hook, crisp transitions and direct value without shouting or sounding like a radio ad.',
+    iconName: 'Flame',
+    badge: 'Viral',
+  },
+];
+
+export const READING_MODES: ReadingMode[] = FEMALE_READING_MODES;
+
+export function getReadingModes(profile: VoiceProfileId = 'female'): ReadingMode[] {
+  return profile === 'male' ? MALE_READING_MODES : FEMALE_READING_MODES;
+}
+
+export const MALE_SAMPLE_SCRIPT =
+  'راك تبيع أونلاين، والمحتوى راه ياخذلك وقت؟ شوف هاد الفكرة. نعطي لـChatGPT معلومات المنتج، ونطلب منّو description قصيرة وscript تاع Reel. نراجع النتيجة، ونصحّح واش لازم. ومن بعد، نقدر ندخلها في workflow يعاونني نخدم أسرع. نبداو بحاجة بسيطة، ونطوّروها خطوة بخطوة.';
 
 export const DURATION_CONFIGS: Record<TargetDuration, DurationConfig> = {
   10: {
@@ -130,20 +172,24 @@ export interface DurationCalibrationParams {
   macroGroupsCount?: number;
   pauseCount?: number;
   observedSessionRateMultiplier?: number;
+  profile?: VoiceProfileId;
 }
 
-// Session calibration cache for Voice Off DZ Original
-const SESSION_RATE_KEY = 'voiceoff_session_rates';
+// Session calibration cache keys (isolated per profile)
+const FEMALE_SESSION_RATE_KEY = 'voiceoff_session_rates';
+const MALE_SESSION_RATE_KEY = 'voiceoff_male_session_rates';
 
 export function recordObservedSessionRate(
   wordCount: number,
   actualDurationSeconds: number,
-  mode: ReadingModeId = 'ugc'
+  mode: ReadingModeId = 'ugc',
+  profile: VoiceProfileId = 'female'
 ): void {
   if (wordCount <= 5 || actualDurationSeconds <= 3) return;
   try {
     const rawRate = wordCount / actualDurationSeconds; // words per second
-    const stored = sessionStorage.getItem(SESSION_RATE_KEY);
+    const storageKey = profile === 'male' ? MALE_SESSION_RATE_KEY : FEMALE_SESSION_RATE_KEY;
+    const stored = sessionStorage.getItem(storageKey);
     const rates: Record<string, { totalWords: number; totalSeconds: number; avgRate: number }> =
       stored ? JSON.parse(stored) : {};
 
@@ -155,13 +201,17 @@ export function recordObservedSessionRate(
       totalSeconds: newSeconds,
       avgRate: Math.round((newWords / newSeconds) * 100) / 100,
     };
-    sessionStorage.setItem(SESSION_RATE_KEY, JSON.stringify(rates));
+    sessionStorage.setItem(storageKey, JSON.stringify(rates));
   } catch {}
 }
 
-export function getObservedSessionRate(mode: ReadingModeId = 'ugc'): number | null {
+export function getObservedSessionRate(
+  mode: ReadingModeId = 'ugc',
+  profile: VoiceProfileId = 'female'
+): number | null {
   try {
-    const stored = sessionStorage.getItem(SESSION_RATE_KEY);
+    const storageKey = profile === 'male' ? MALE_SESSION_RATE_KEY : FEMALE_SESSION_RATE_KEY;
+    const stored = sessionStorage.getItem(storageKey);
     if (!stored) return null;
     const rates = JSON.parse(stored);
     return rates[mode]?.avgRate || null;
@@ -172,13 +222,19 @@ export function getObservedSessionRate(mode: ReadingModeId = 'ugc'): number | nu
 
 /**
  * Calibrated duration estimation considering:
- * - mode pace factor according to Algerian commercial benchmarks:
- *   - UGC naturel: ~185–205 words/min (~3.25 w/s) -> 71 words = ~22s
- *   - Promo: ~190–215 words/min (~3.35 w/s)
- *   - Elegant: ~165–185 words/min (~2.90 w/s)
- * - language composition (Darija & French mix)
+ * - voice profile (Female Boutique vs Male Creator)
+ * - mode pace factor according to Algerian commercial and tech creator benchmarks:
+ *   - Female:
+ *     - UGC naturel: ~185–205 words/min (~3.25 w/s)
+ *     - Promo: ~190–215 words/min (~3.35 w/s)
+ *     - Elegant: ~165–185 words/min (~2.90 w/s)
+ *   - Male:
+ *     - Conseil naturel: ~180-195 words/min (~3.20 w/s)
+ *     - Reel dynamique: ~200-215 words/min (~3.40 w/s)
+ *     - Tuto & Démo: ~175-185 words/min (~3.00 w/s)
+ * - language composition (Darija + French or English tech terms)
  * - punctuation pauses (micro-breathing)
- * - continuous session calibration from Voice Off DZ Original
+ * - continuous session calibration isolated per profile
  */
 export function estimateSpeechDurationSeconds(
   paramsOrWordCount: number | DurationCalibrationParams
@@ -195,19 +251,26 @@ export function estimateSpeechDurationSeconds(
     macroGroupsCount = 3,
     pauseCount = 0,
     observedSessionRateMultiplier,
+    profile = 'female',
   } = paramsOrWordCount;
 
   const wCount = explicitWords ?? countWords(text);
   if (wCount <= 0) return 0;
 
   // Calibrated Algerian voice benchmarks (words per second)
-  let baseRate = 3.25; // UGC: ~195 wpm (Section 9 & 11)
-  if (mode === 'promo') baseRate = 3.35; // Promo: ~201 wpm
-  if (mode === 'elegant') baseRate = 2.90; // Elegant: ~174 wpm
-  if (mode === 'ugc') baseRate = 3.25; // UGC: ~195 wpm
+  let baseRate = 3.25;
+  if (profile === 'male') {
+    if (mode === 'promo') baseRate = 3.40; // Reel dynamique
+    else if (mode === 'elegant') baseRate = 3.00; // Tuto & Démo
+    else baseRate = 3.20; // Conseil naturel
+  } else {
+    if (mode === 'promo') baseRate = 3.35; // Promo: ~201 wpm
+    else if (mode === 'elegant') baseRate = 2.90; // Elegant: ~174 wpm
+    else baseRate = 3.25; // UGC: ~195 wpm
+  }
 
-  // Check if session calibration has recorded actual runs for this voice
-  const sessionObservedRate = getObservedSessionRate(mode);
+  // Check if session calibration has recorded actual runs for this specific profile
+  const sessionObservedRate = getObservedSessionRate(mode, profile);
   if (sessionObservedRate && sessionObservedRate > 2.0 && sessionObservedRate < 4.5) {
     baseRate = (baseRate * 0.4) + (sessionObservedRate * 0.6);
   }

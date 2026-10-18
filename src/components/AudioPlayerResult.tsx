@@ -15,7 +15,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { AudioGenerationResult } from '../types.ts';
-import { READING_MODES } from '../config/pricing.ts';
+import { getReadingModes, READING_MODES } from '../config/pricing.ts';
 
 interface AudioPlayerResultProps {
   result: AudioGenerationResult;
@@ -97,7 +97,7 @@ export const AudioPlayerResult: React.FC<AudioPlayerResultProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
   };
 
-  const modeObj = READING_MODES.find((m) => m.id === result.mode);
+  const modeObj = getReadingModes(result.profile || 'female').find((m) => m.id === result.mode);
 
   const handleCopy = () => {
     if (onDuplicateText) {
@@ -108,7 +108,11 @@ export const AudioPlayerResult: React.FC<AudioPlayerResultProps> = ({
   };
 
   return (
-    <div className="rounded-2xl border border-purple-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 p-5 sm:p-7 shadow-2xl shadow-purple-950/30 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 ring-1 ring-purple-500/20">
+    <div className={`rounded-2xl border p-5 sm:p-7 shadow-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 ring-1 ${
+      result.profile === 'male'
+        ? 'border-cyan-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 shadow-cyan-950/30 ring-cyan-500/20'
+        : 'border-purple-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 shadow-purple-950/30 ring-purple-500/20'
+    }`}>
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
@@ -124,7 +128,11 @@ export const AudioPlayerResult: React.FC<AudioPlayerResultProps> = ({
       {/* Result Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center justify-center">
+          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+            result.profile === 'male'
+              ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
+              : 'bg-purple-500/20 border-purple-500/30 text-purple-300'
+          }`}>
             <FileAudio className="w-5 h-5" />
           </div>
           <div>
@@ -137,7 +145,9 @@ export const AudioPlayerResult: React.FC<AudioPlayerResultProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Voix algérienne naturelle • Normalisée à -16 LUFS pour Meta Ads
+              {result.profile === 'male'
+                ? 'Voix masculine créateur IA • Normalisée à -16 LUFS pour TikTok & Reels'
+                : 'Voix algérienne naturelle • Normalisée à -16 LUFS pour Meta Ads'}
             </p>
           </div>
         </div>

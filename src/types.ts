@@ -1,3 +1,5 @@
+export type VoiceProfileId = 'female' | 'male';
+
 export type ReadingModeId = 'ugc' | 'elegant' | 'promo';
 
 export interface ReadingMode {
@@ -146,6 +148,8 @@ export interface VoiceStatus {
   displayName: string;
   hasSample: boolean;
   error?: string;
+  profile?: VoiceProfileId;
+  canCreate?: boolean;
 }
 
 export interface AudioDetailedMetrics {
@@ -176,6 +180,7 @@ export interface AudioGenerationResult {
   targetDuration: TargetDuration;
   generatedAt: string;
   fileName: string;
+  profile?: VoiceProfileId;
   hasEmotionalDirection?: boolean;
   strategyUsed?: 'unified_flow' | 'macro_groups' | 'legacy_multipart';
   macroGroupsCount?: number;
@@ -194,5 +199,6 @@ export interface ComparisonResult {
   standard: AudioGenerationResult;
   directed: AudioGenerationResult;
   generatedAt: string;
+  profile?: VoiceProfileId;
 }
 

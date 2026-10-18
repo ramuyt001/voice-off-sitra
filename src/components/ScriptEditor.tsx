@@ -15,12 +15,14 @@ interface ScriptEditorProps {
   onOptimize: (shortenOnly?: boolean) => void;
   onClear: () => void;
   onDuplicateLast: () => void;
+  onLoadSampleScript?: () => void;
   onTextSelection: (
     selectedSnippet: string,
     range: { startIndex: number; endIndex: number } | null
   ) => void;
   isOptimizing: boolean;
   hasStoredSessionText: boolean;
+  profile?: 'female' | 'male';
 }
 
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({
@@ -29,9 +31,11 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
   onOptimize,
   onClear,
   onDuplicateLast,
+  onLoadSampleScript,
   onTextSelection,
   isOptimizing,
   hasStoredSessionText,
+  profile = 'female',
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const maxLength = 1500;
@@ -132,7 +136,20 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sample test script for the profile */}
+          {onLoadSampleScript && (
+            <button
+              type="button"
+              onClick={onLoadSampleScript}
+              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 text-xs flex items-center gap-1.5 transition-colors"
+              title={profile === 'male' ? "Charger le texte d'essai TikTok IA & Workflow" : "Charger le texte d'exemple Robe Hijab"}
+            >
+              <FileText className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{profile === 'male' ? "Texte d'essai IA & Reel" : "Texte d'essai Boutique"}</span>
+            </button>
+          )}
+
           {/* Duplicate last text from current session */}
           {hasStoredSessionText && (
             <button

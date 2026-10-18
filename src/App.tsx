@@ -17,6 +17,7 @@ import {
   ReadingModeId,
   ScriptOptimizationResult,
   TargetDuration,
+  VoiceProfileId,
   VoiceStatus,
 } from './types.ts';
 import {
@@ -24,6 +25,7 @@ import {
   estimateCost,
   estimateSpeechDurationSeconds,
   recordObservedSessionRate,
+  MALE_SAMPLE_SCRIPT,
 } from './config/pricing.ts';
 import {
   buildMacroGroups,
@@ -32,6 +34,7 @@ import {
   resolveEffectiveDirections,
 } from './utils/segmentation.ts';
 import { Header } from './components/Header.tsx';
+import { ProfileSelector } from './components/ProfileSelector.tsx';
 import { ModeSelector } from './components/ModeSelector.tsx';
 import { DurationSelector } from './components/DurationSelector.tsx';
 import { ScriptEditor } from './components/ScriptEditor.tsx';
@@ -51,10 +54,17 @@ const STORAGE_KEY_SPENT = 'voiceoff_spent_eur';
 const STORAGE_KEY_MONTH = 'voiceoff_current_month';
 const STORAGE_KEY_PREF_MODE = 'voiceoff_pref_mode';
 const STORAGE_KEY_PREF_DURATION = 'voiceoff_pref_duration';
+const STORAGE_KEY_PREF_PROFILE = 'voiceoff_selected_profile';
 const SESSION_KEY_LAST_SCRIPT = 'voiceoff_session_last_script';
 const SESSION_KEY_DIRECTIONS = 'voiceoff_session_directions';
 
 export default function App() {
+  // Profile Selection (Female Boutique vs Male Creator IA)
+  const [selectedProfile, setSelectedProfile] = useState<VoiceProfileId>(() => {
+    return (localStorage.getItem(STORAGE_KEY_PREF_PROFILE) as VoiceProfileId) || 'female';
+  });
+  const [isCreatingMaleVoice, setIsCreatingMaleVoice] = useState<boolean>(false);
+
   // Mode & Duration
   const [mode, setMode] = useState<ReadingModeId>(() => {
     return (localStorage.getItem(STORAGE_KEY_PREF_MODE) as ReadingModeId) || 'elegant';
@@ -153,6 +163,10 @@ export default function App() {
 
   // Sync preferences to localStorage
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_PREF_PROFILE, selectedProfile);
+  }, [selectedProfile]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PREF_MODE, mode);
   }, [mode]);
 
@@ -160,13 +174,13 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_PREF_DURATION, String(duration));
   }, [duration]);
 
-  // Load voice status on mount
+  // Load voice status on mount or profile change
   useEffect(() => {
     let isMounted = true;
     const checkVoice = async () => {
       try {
         setIsLoadingVoice(true);
-        const res = await fetch('/api/voice/status');
+        const res = await fetch(`/api/voice/status?profile=${selectedProfile}`);
         const data = await res.json();
         if (isMounted) {
           setVoiceStatus(data);
@@ -176,7 +190,7 @@ export default function App() {
         }
       } catch (err: any) {
         if (isMounted) {
-          setErrorMessage('Connexion au serveur vocale interrompue.');
+          setErrorMessage('Connexion au serveur vocal interrompue.');
         }
       } finally {
         if (isMounted) setIsLoadingVoice(false);
@@ -186,7 +200,52 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedProfile]);
+
+  // Explicit male voice creation handler
+  const handleCreateMaleVoice = async () => {
+    if (isCreatingMaleVoice) return;
+    try {
+      setIsCreatingMaleVoice(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      const res = await fetch('/api/voice/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: 'male' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de la création de la voix masculine.');
+      }
+      setVoiceStatus(data);
+      setSuccessMessage(
+        'Identité vocale « Voice Off DZ Creator Male » créée et enregistrée avec succès dans le projet Google Cloud (store: true) !'
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setErrorMessage(
+        err.message || 'Impossible de créer la voix masculine via Gemini Voice Design.'
+      );
+    } finally {
+      setIsCreatingMaleVoice(false);
+    }
+  };
+
+  // Sample script loader per profile
+  const handleLoadSampleScript = () => {
+    const textToLoad = selectedProfile === 'male' ? MALE_SAMPLE_SCRIPT : DEFAULT_SAMPLE_SCRIPT;
+    setScript(textToLoad);
+    setDirections([]);
+    setSelectedSnippet('');
+    setSelectedRange(null);
+    setSuccessMessage(
+      selectedProfile === 'male'
+        ? "Texte d'essai TikTok / IA & Workflow chargé !"
+        : "Texte d'essai Boutique Robe Hijab chargé !"
+    );
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
 
   // Budget change handler
   const handleBudgetChange = (newBudget: number) => {
@@ -223,6 +282,7 @@ export default function App() {
     text: script,
     wordCount,
     mode,
+    profile: selectedProfile,
     macroGroupsCount: macroGroups.length,
     pauseCount: activeDirs.filter((d) => d.pauseBefore || d.pauseAfter).length,
   });
@@ -338,7 +398,7 @@ export default function App() {
       const res = await fetch('/api/analyze-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ script, mode }),
+        body: JSON.stringify({ script, mode, profile: selectedProfile }),
       });
 
       const data = await res.json();
@@ -413,6 +473,7 @@ export default function App() {
           targetDuration: duration,
           mode: mode,
           shortenOnly,
+          profile: selectedProfile,
         }),
       });
 
@@ -511,6 +572,7 @@ export default function App() {
           directions: currentActiveDirs,
           strategy: 'unified_flow',
           returnJson: true,
+          profile: selectedProfile,
         }),
         signal: controller.signal,
       });
@@ -537,12 +599,13 @@ export default function App() {
       const cost = estimateCost(script, realDuration);
       recordSpent(cost.totalEur);
 
-      // Continuously calibrate voice delivery rate for Voice Off DZ Original
-      recordObservedSessionRate(wordCount, realDuration, mode);
+      // Continuously calibrate voice delivery rate isolated per profile
+      recordObservedSessionRate(wordCount, realDuration, mode, selectedProfile);
 
       const todayStr = new Date().toISOString().split('T')[0];
       const cleanMode = mode.toUpperCase();
-      const fileName = `VoiceOff_${todayStr}_${cleanMode}_${duration}S.mp3`;
+      const profilePrefix = selectedProfile === 'male' ? 'VoiceOff_Male' : 'VoiceOff_Female';
+      const fileName = `${profilePrefix}_${todayStr}_${cleanMode}_${duration}S.mp3`;
 
       setAudioResult({
         audioBlobUrl: audioUrl,
@@ -556,6 +619,7 @@ export default function App() {
         targetDuration: duration,
         generatedAt: new Date().toLocaleTimeString(),
         fileName: fileName,
+        profile: selectedProfile,
         hasEmotionalDirection: currentActiveDirs.length > 0,
         strategyUsed: data.strategyUsed || 'unified_flow',
         macroGroupsCount: data.macroGroups?.length || macroGroups.length,
@@ -628,6 +692,7 @@ export default function App() {
           directions: currentDirs,
           targetDuration: duration,
           compareMode: compareMode,
+          profile: selectedProfile,
         }),
       });
 
@@ -667,6 +732,7 @@ export default function App() {
           targetDuration: duration,
           generatedAt: new Date().toLocaleTimeString(),
           fileName: `VoiceOff_${todayStr}_${cleanMode}_VersionA.mp3`,
+          profile: selectedProfile,
           hasEmotionalDirection: false,
           strategyUsed: data.standard.strategyUsed,
           macroGroupsCount: data.standard.macroGroupsCount,
@@ -687,6 +753,7 @@ export default function App() {
           targetDuration: duration,
           generatedAt: new Date().toLocaleTimeString(),
           fileName: `VoiceOff_${todayStr}_${cleanMode}_VersionB.mp3`,
+          profile: selectedProfile,
           hasEmotionalDirection: true,
           strategyUsed: data.directed.strategyUsed,
           macroGroupsCount: data.directed.macroGroupsCount,
@@ -695,6 +762,7 @@ export default function App() {
           measurements: data.directed.measurements,
           wavMeasurements: data.directed.wavMeasurements,
         },
+        profile: selectedProfile,
         generatedAt: new Date().toLocaleTimeString(),
       });
 
@@ -747,6 +815,7 @@ export default function App() {
         monthlySpentEur={monthlySpentEur}
         monthlyBudgetEur={monthlyBudgetEur}
         onBudgetChange={handleBudgetChange}
+        profile={selectedProfile}
       />
 
       {/* Main Container */}
@@ -786,9 +855,25 @@ export default function App() {
           </div>
         )}
 
+        {/* Step 0: Profile Selection (Female Boutique vs Male Creator IA) */}
+        <section aria-labelledby="step-profile">
+          <ProfileSelector
+            selectedProfile={selectedProfile}
+            onSelectProfile={setSelectedProfile}
+            voiceStatus={voiceStatus}
+            isLoadingVoice={isLoadingVoice}
+            isCreatingMaleVoice={isCreatingMaleVoice}
+            onCreateMaleVoice={handleCreateMaleVoice}
+          />
+        </section>
+
         {/* Step 1: Mode Selection */}
         <section aria-labelledby="step-mode">
-          <ModeSelector selectedMode={mode} onSelectMode={setMode} />
+          <ModeSelector
+            selectedMode={mode}
+            onSelectMode={setMode}
+            profile={selectedProfile}
+          />
         </section>
 
         {/* Step 2: Duration Selection */}
@@ -809,9 +894,11 @@ export default function App() {
             onOptimize={handleOptimizeScript}
             onClear={handleClearScript}
             onDuplicateLast={handleDuplicateLast}
+            onLoadSampleScript={handleLoadSampleScript}
             onTextSelection={handleTextSelection}
             isOptimizing={isOptimizing}
             hasStoredSessionText={!!sessionStorage.getItem(SESSION_KEY_LAST_SCRIPT)}
+            profile={selectedProfile}
           />
         </section>
 
@@ -829,6 +916,7 @@ export default function App() {
               wavMeasurements={audioResult?.wavMeasurements}
               strategyUsed={audioResult?.strategyUsed}
               archivedDirectionsCount={archivedDirs.length}
+              profile={selectedProfile}
             />
           </section>
         )}
@@ -872,22 +960,28 @@ export default function App() {
               type="button"
               onClick={() => handleGenerateAudio()}
               disabled={isGenerating || !script.trim() || !voiceStatus?.ready}
-              className={`w-full sm:flex-1 py-4 px-6 rounded-2xl font-bold text-base shadow-xl transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-4 focus:ring-purple-500/30 ${
+              className={`w-full sm:flex-1 py-4 px-6 rounded-2xl font-bold text-base shadow-xl transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-4 ${
+                selectedProfile === 'male' ? 'focus:ring-cyan-500/30' : 'focus:ring-purple-500/30'
+              } ${
                 isGenerating
-                  ? 'bg-purple-900/60 text-purple-200 cursor-wait border border-purple-500/40'
+                  ? selectedProfile === 'male'
+                    ? 'bg-cyan-900/60 text-cyan-200 cursor-wait border border-cyan-500/40'
+                    : 'bg-purple-900/60 text-purple-200 cursor-wait border border-purple-500/40'
                   : !script.trim() || !voiceStatus?.ready
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                  : selectedProfile === 'male'
+                  ? 'bg-gradient-to-r from-cyan-600 via-blue-600 to-cyan-600 hover:from-cyan-500 hover:via-blue-500 hover:to-cyan-500 text-white shadow-cyan-950/70 border border-cyan-400/40 active:scale-[0.99]'
                   : 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-purple-600 hover:from-purple-500 hover:via-fuchsia-500 hover:to-purple-500 text-white shadow-purple-950/70 border border-purple-400/40 active:scale-[0.99]'
               }`}
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin text-purple-300" />
+                  <Loader2 className={`w-5 h-5 animate-spin ${selectedProfile === 'male' ? 'text-cyan-300' : 'text-purple-300'}`} />
                   <span>Création de la voix off continue…</span>
                 </>
               ) : (
                 <>
-                  <Mic className="w-5 h-5 text-purple-200" />
+                  <Mic className={`w-5 h-5 ${selectedProfile === 'male' ? 'text-cyan-200' : 'text-purple-200'}`} />
                   <span>
                     Générer la voix off ({duration}s)
                     {activeDirs.length > 0 && (
@@ -913,22 +1007,32 @@ export default function App() {
 
           {/* Discreet Visual Progress during generation */}
           {isGenerating && (
-            <div className="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-purple-500/20 animate-in fade-in">
+            <div className={`space-y-1.5 p-3 rounded-xl bg-slate-900/60 border animate-in fade-in ${
+              selectedProfile === 'male' ? 'border-cyan-500/20' : 'border-purple-500/20'
+            }`}>
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-2 text-purple-300">
+                <span className={`flex items-center gap-2 ${selectedProfile === 'male' ? 'text-cyan-300' : 'text-purple-300'}`}>
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      selectedProfile === 'male' ? 'bg-cyan-400' : 'bg-purple-400'
+                    }`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                      selectedProfile === 'male' ? 'bg-cyan-500' : 'bg-purple-500'
+                    }`}></span>
                   </span>
                   <span>Synthèse audio continue Gemini 3.8 Flash TTS en cours…</span>
                 </span>
-                <span className="font-semibold text-purple-300">
+                <span className={`font-semibold ${selectedProfile === 'male' ? 'text-cyan-300' : 'text-purple-300'}`}>
                   {generationProgress}%
                 </span>
               </div>
               <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-purple-500 to-fuchsia-500 h-1.5 rounded-full transition-all duration-300"
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    selectedProfile === 'male'
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                      : 'bg-gradient-to-r from-purple-500 to-fuchsia-500'
+                  }`}
                   style={{ width: `${generationProgress}%` }}
                 />
               </div>
@@ -992,10 +1096,11 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 px-4 text-center text-xs text-slate-400 space-y-1">
         <p>
-          Voice Off — Synthèse vocale algérienne naturelle pour publicités Meta Ads
+          Voice Off — Synthèse vocale algérienne naturelle pour publicités Meta Ads & vidéos TikTok / Reels
         </p>
         <p className="text-[11px] text-slate-400">
-          Modèle : <code>gemini-3.8-flash-tts</code> • Voix : <code>Voice Off DZ Original</code>
+          Modèle : <code>gemini-3.8-flash-tts</code> • Voix active :{' '}
+          <code>{selectedProfile === 'male' ? 'Voice Off DZ Creator Male' : 'Voice Off DZ Original'}</code>
         </p>
       </footer>
     </div>

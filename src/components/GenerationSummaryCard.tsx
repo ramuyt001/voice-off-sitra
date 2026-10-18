@@ -15,6 +15,7 @@ import {
   EmotionalDirection,
   MacroGroup,
   ReadingModeId,
+  VoiceProfileId,
 } from '../types.ts';
 
 interface GenerationSummaryCardProps {
@@ -28,6 +29,7 @@ interface GenerationSummaryCardProps {
   wavMeasurements?: AudioDetailedMetrics;
   strategyUsed?: string;
   archivedDirectionsCount?: number;
+  profile?: VoiceProfileId;
 }
 
 export const GenerationSummaryCard: React.FC<GenerationSummaryCardProps> = ({
@@ -41,6 +43,7 @@ export const GenerationSummaryCard: React.FC<GenerationSummaryCardProps> = ({
   wavMeasurements,
   strategyUsed = 'unified_flow',
   archivedDirectionsCount = 0,
+  profile = 'female',
 }) => {
   const validMicro = microSegments.filter(
     (d) => d.isValid && d.status !== 'invalid' && d.status !== 'archived'
@@ -96,7 +99,9 @@ export const GenerationSummaryCard: React.FC<GenerationSummaryCardProps> = ({
               )}
             </div>
             <p className="text-[11px] text-slate-400">
-              Style {mode.toUpperCase()} naturel algérien • Débit fluide ~190–200 mots/min sans étirement
+              {profile === 'male'
+                ? 'Créateur IA TikTok/Reels algérien (20–25 ans) • Accent Darija authentique et termes techniques clairs'
+                : `Style ${mode.toUpperCase()} naturel algérien • Débit fluide ~190–200 mots/min sans étirement`}
             </p>
           </div>
         </div>

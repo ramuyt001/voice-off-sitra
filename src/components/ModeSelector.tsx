@@ -1,23 +1,28 @@
 import React from 'react';
 import { MessageSquareHeart, Sparkles, Flame, Check } from 'lucide-react';
-import { READING_MODES } from '../config/pricing.ts';
-import { ReadingModeId } from '../types.ts';
+import { getReadingModes } from '../config/pricing.ts';
+import { ReadingModeId, VoiceProfileId } from '../types.ts';
 
 interface ModeSelectorProps {
   selectedMode: ReadingModeId;
   onSelectMode: (mode: ReadingModeId) => void;
+  profile?: VoiceProfileId;
 }
 
 export const ModeSelector: React.FC<ModeSelectorProps> = ({
   selectedMode,
   onSelectMode,
+  profile = 'female',
 }) => {
+  const isMale = profile === 'male';
+  const modes = getReadingModes(profile);
+
   const getIcon = (id: ReadingModeId) => {
     switch (id) {
       case 'ugc':
-        return <MessageSquareHeart className="w-5 h-5 text-fuchsia-400" />;
+        return <MessageSquareHeart className={`w-5 h-5 ${isMale ? 'text-cyan-400' : 'text-fuchsia-400'}`} />;
       case 'elegant':
-        return <Sparkles className="w-5 h-5 text-purple-400" />;
+        return <Sparkles className={`w-5 h-5 ${isMale ? 'text-blue-400' : 'text-purple-400'}`} />;
       case 'promo':
         return <Flame className="w-5 h-5 text-amber-400" />;
     }
@@ -27,27 +32,29 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 text-xs flex items-center justify-center font-bold">
+          <span className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${isMale ? 'bg-cyan-500/20 text-cyan-300' : 'bg-purple-500/20 text-purple-300'}`}>
             1
           </span>
           Choisir le mode de lecture
         </label>
         <span className="text-xs text-slate-400">
-          Même voix féminine algérienne, intention adaptée
+          {isMale ? 'Même voix masculine algérienne, intention adaptée' : 'Même voix féminine algérienne, intention adaptée'}
         </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {READING_MODES.map((mode) => {
+        {modes.map((mode) => {
           const isSelected = selectedMode === mode.id;
           return (
             <button
               key={mode.id}
               type="button"
               onClick={() => onSelectMode(mode.id)}
-              className={`relative text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between group focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+              className={`relative text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between group focus:outline-none focus:ring-2 ${
                 isSelected
-                  ? 'bg-slate-900/90 border-purple-500 shadow-lg shadow-purple-950/40 ring-1 ring-purple-500/40'
+                  ? isMale
+                    ? 'bg-slate-900/90 border-cyan-500 shadow-lg shadow-cyan-950/40 ring-1 ring-cyan-500/40'
+                    : 'bg-slate-900/90 border-purple-500 shadow-lg shadow-purple-950/40 ring-1 ring-purple-500/40'
                   : 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-900/70 hover:border-slate-700'
               }`}
             >
@@ -56,7 +63,11 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
                 <div className="flex items-center gap-2.5">
                   <div
                     className={`p-2 rounded-lg transition-colors ${
-                      isSelected ? 'bg-purple-500/20' : 'bg-slate-800/80'
+                      isSelected
+                        ? isMale
+                          ? 'bg-cyan-500/20'
+                          : 'bg-purple-500/20'
+                        : 'bg-slate-800/80'
                     }`}
                   >
                     {getIcon(mode.id)}
@@ -72,7 +83,7 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
                 </div>
 
                 {isSelected ? (
-                  <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shadow">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center shadow ${isMale ? 'bg-cyan-600' : 'bg-purple-600'}`}>
                     <Check className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                 ) : (
@@ -82,7 +93,7 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
                 )}
               </div>
 
-              {/* Display description requested by user */}
+              {/* Display description */}
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                 « {mode.displayDescription} »
               </p>
